@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image2Css</title>
+</head>
+
+<body>
+    <input type="file" id="fileInput" accept="image/jpeg, image/png">
+    Blur: <input type="number" value="0" id="blur">
+    <canvas id="canvas" style="display: none;"></canvas>
+    <hr>
+    <textarea id="htmlout" style="width: 100%; height: 100px;"></textarea>
+    <hr>
+
+    <button id="copybtn">copy</button>
+    <script>
+        const fileInput = document.querySelector('#fileInput');
+        const canvas = document.querySelector('#canvas');
+        const blur = document.querySelector('#blur');
+        const htmlout = document.querySelector('#htmlout');
+        const copybtn = document.querySelector('#copybtn');
+        const ctx = canvas.getContext('2d');
+        const MAX_WIDTH = 500;
+        const MAX_HEIGHT = 500;
+        let rgbToHex = (r, g, b) => '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+        let output;
+
+        copybtn.addEventListener('click', () => {
+            if (!htmlout.value || !output) return;
+            navigator.clipboard.writeText(output).then(() => {
+                htmlout.select();
+            }).catch(console.log);
+        });
+
+        fileInput.addEventListener('change', () => {
+
+            const file = fileInput.files[0];
+            const image = new Image();
+
+
+
+            image.src = URL.createObjectURL(file);
+            image.onload = function () {
+
+                let width = image.width;
+                let height = image.height;
+                /**
+                 resize the images if you dont want your pc to rip
+                 it might make look weird some images but this is what i could done with my time
+                 maybe if you compress the image first you can remove this piece of code.
+                **/
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+                htmlout.value = '';
+                canvas.width = width;
+                canvas.height = height;
+                ctx.drawImage(image, 0, 0, width,height);
+                URL.revokeObjectURL(image.src);
+                let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                let pixelCount = 0;
+                output = `
+    <!--
+    Generated with so much love! - ramirez 
+    -->
+    <div id="image2css" style="position:absolute;top:10%;left:35%;height:1px;width:1px;box-shadow:"></div>`;
+                let out = 'box-shadow:';
+                for (let i = 0; i < imageData.data.length; i += 4) {
+                    let x, y;
+
+                    x = pixelCount % width;
+                    y = Math.floor(pixelCount / width);
+
+                    let [r, g, b] = [
+                        imageData.data[i],
+                        imageData.data[i + 1],
+                        imageData.data[i + 2]
+                    ];
+
+
+                    out += `${x}px ${y}px ${blur.value ? blur.value.toString() : '0'}px ${rgbToHex(r, g, b)},`
+
+                    pixelCount++;
+                }
+                out = out.slice(0, out.length - 1) + ';';
+                output = output.replace(/box-shadow:/, out);
+                htmlout.value = output.slice(0, 600) + '... (click the copy button to copy whole the output)';
+                fileInput.value = '';
+            };
+        });
+    </script>
+</body>
+
+</html>
